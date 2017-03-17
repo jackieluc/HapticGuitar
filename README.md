@@ -1,5 +1,7 @@
 # HapticGuitar
-Exploring the use of computer haptics to render the feeling of plucking or strumming of virtual guitar strings.
+Exploring the use of computer haptics to render the feeling of plucking or strumming of virtual guitar strings.  
+
+## Created by: Jackie Luc and Philmo Gu  
 
 # Setup
 
@@ -7,8 +9,8 @@ Exploring the use of computer haptics to render the feeling of plucking or strum
 2. Download the CHAI3D Library (version 3.2.0) from [here](http://www.chai3d.org/download/releases "CHAI3D")  
 3. Clone this project into /chai3d-3.2.0/templates  
 4. Double click the "HapticGuitar.sln" to open the solution in Visual Studio 2015 Community
-  
-  
+
+
 
 # How to run:
 
