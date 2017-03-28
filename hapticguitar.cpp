@@ -1,6 +1,6 @@
 //==============================================================================
 /*
-\author    Your Name
+\author    Philmo Gu, Jackie Luc
 */
 //==============================================================================
 
@@ -73,7 +73,7 @@ std::vector<Mass*> pActive;
 std::vector<Mass*> pStatic;
 std::vector<Spring*> pSpring;
 
-void updateForceParticles();
+void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 
 bool DEBUG = false;
@@ -565,8 +565,8 @@ void updateHaptics(void)
 		/////////////////////////////////////////////////////////////////////
 
 		// read position 
-		cVector3d position;
-		hapticDevice->getPosition(position);
+		cVector3d cursorPos;
+		hapticDevice->getPosition(cursorPos);
 
 		// read orientation 
 		cMatrix3d rotation;
@@ -582,7 +582,7 @@ void updateHaptics(void)
 		/////////////////////////////////////////////////////////////////////
 
 		// update position and orienation of cursor
-		cursor->setLocalPos(position);
+		cursor->setLocalPos(cursorPos);
 		cursor->setLocalRot(rotation);
 
 		/////////////////////////////////////////////////////////////////////
@@ -596,7 +596,7 @@ void updateHaptics(void)
 		double delta_t = timer.getCurrentTimeSeconds();
 		timer.start(true);	//reset the clock
 
-		updateForceParticles();
+		updateForceParticles(cursorPos);
 
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
@@ -659,7 +659,7 @@ cVector3d calculateForceGravity(Mass *m) {
 	return F_gravity;
 }
 
-cVector3d calculateForceCollision(Mass *m) {
+cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	// *** Need to fill it in
 	// *** I don't think the particles should ever collide with other particles
 	//so this will just be cursor-particle collision
@@ -674,12 +674,12 @@ cVector3d calculateForceDamping(Mass *m) {
 	return F_damping;
 }
 
-cVector3d getForceOnParticle(Mass *m) {
+cVector3d getForceOnParticle(Mass *m, cVector3d cursorPos) {
 	cVector3d Fg = calculateForceGravity(m);	//gravity
-	cVector3d Fc = calculateForceCollision(m);	//collision
+	cVector3d Fc = calculateForceCollision(m, cursorPos);	//collision
 	cVector3d Fd = calculateForceDamping(m);	//air damping
 
-												//cVector3d F = Fg + Fc + Fd;		//*** Add gravity, or take it out?
+	//cVector3d F = Fg + Fc + Fd;		//*** Add gravity, or take it out?
 	cVector3d F = Fc + Fd;
 	return F;
 }
@@ -725,11 +725,11 @@ cVector3d getForceFromSpring(Spring *s) {
 	return F;
 }
 
-void updateForceParticles() {
+void updateForceParticles(cVector3d cursorPos) {
 	//Update forces on particle
 	for (int i = 0; i < pActive.size(); i++) {
 		Mass* m = pActive[i];
-		cVector3d F_particle = getForceOnParticle(m);
+		cVector3d F_particle = getForceOnParticle(m, cursorPos);
 		//DebugMessage("F_PARTICLE", F_particle.str());
 		m->f = F_particle;
 	}
