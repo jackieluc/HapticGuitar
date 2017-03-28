@@ -20,12 +20,14 @@ struct Mass {
 	cVector3d pos;		//position of particle	(x,y,z; meters)
 	cVector3d vel;		//velocity of particle	(meters per second??)
 	cVector3d f;		//force applied on particle	(Newtons)
+	double k;			//contact stiffness
 
 	Mass(cShapeSphere *particle, double _mass, cVector3d position) {
 		p = particle;
 		mass = _mass;
 		pos = position;
 		vel = cVector3d(0, 0, 0);
+		k = 1000;
 		p->setLocalPos(pos);
 	}
 
@@ -75,6 +77,8 @@ std::vector<Spring*> pSpring;
 
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
+cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos);
+void computeCursorForce();
 
 bool DEBUG = false;
 
@@ -610,6 +614,9 @@ void updateHaptics(void)
 			m->vel = vel;
 			m->pos = pos;
 			m->updateParticle();
+
+			// update the haptic device's force
+			//force = -calculateForceCollision(m, cursorPos) * 0.5; // issue with center of sphere causing unstability
 		}
 		for (int i = 0; i < pSpring.size(); i++) {
 			Spring* s = pSpring[i];
@@ -664,6 +671,14 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	// *** I don't think the particles should ever collide with other particles
 	//so this will just be cursor-particle collision
 	cVector3d F_collision(0.0, 0.0, 0.0);
+
+	cVector3d particle_to_cursor = m->pos - cursorPos; //direction vector from particle to cursor position
+	double radius = 0.01; //radius of particle
+
+	// attract the sphere to the cursor
+	if (particle_to_cursor.length() < radius)
+		F_collision = -m->k * (radius - particle_to_cursor.length()) * cNormalize(particle_to_cursor);
+
 	return F_collision;
 }
 
@@ -824,3 +839,8 @@ void setupScene(int i) {
 }
 
 //===========================Cursor ====================================//
+
+void computeCursorForce()
+{
+
+}
