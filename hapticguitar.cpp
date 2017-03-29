@@ -600,8 +600,8 @@ void updateHaptics(void)
 		timer.start(true);	//reset the clock
 
 		if (button == true) {
-			//int nearestPIndex = findNearestP(cursorPos);	//***using placeholder for function. Gotta add it in later
-			int nearestPIndex = 1;
+			int nearestPIndex = findNearestP(cursorPos);	//***using placeholder for function. Gotta add it in later
+			//int nearestPIndex = 1;
 			pActive[nearestPIndex]->pos = cursorPos;
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
 		}
@@ -852,7 +852,7 @@ void addSprings(double k, double rest_length, double ksd) {
 
 void setupScene1() {
 	//mass
-	int size = 3;
+	int size = 1;
 	double length = 0.1;
 	double radius = 0.01;
 	double mass = 1.0;
