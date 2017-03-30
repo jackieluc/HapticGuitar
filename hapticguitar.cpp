@@ -599,15 +599,17 @@ void updateHaptics(void)
 		double delta_t = timer.getCurrentTimeSeconds();
 		timer.start(true);	//reset the clock
 
+		pActive[0]->pos = cVector3d(0.0, cursorPos.y(), 0.0);
+
 		if (button == true) {
 			int nearestPIndex = findNearestP(cursorPos);	//***using placeholder for function. Gotta add it in later
 			//int nearestPIndex = 1;
-			pActive[nearestPIndex]->pos = cursorPos;
+			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
 		}
 		updateForceParticles(cursorPos);
 
-		std::cout << button << std::endl;
+		//std::cout << button << std::endl;
 		
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
@@ -701,7 +703,8 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	//so this will just be cursor-particle collision
 	//P: Using a standard collision for now.
 	cVector3d F_collision(0.0, 0.0, 0.0);
-		
+	
+
 	double curr_length_cursor = (m->pos - cursorPos).length();
 	double rest_length_cursor = m->p->getRadius() + cursor->getRadius();
 	cVector3d dir = cNormalize(m->pos - cursorPos);
@@ -792,6 +795,30 @@ void updateForceParticles(cVector3d cursorPos) {
 		Mass* m2 = s->getMass2();
 		m1->f = m1->f + F_spring;
 		m2->f = m2->f - F_spring;
+
+		// reset rest length
+		s->restLength = 0.01;
+
+		// the two springs have inverse relationship
+		if (i == 0) {
+			// cursorPos.y will be negative if < 0 and will be positive if > 0
+			s->restLength = 0.01 + cursorPos.y();
+
+			// if cursPos.y is less than the first static sphere
+			// the spring has no rest length
+			if (cursorPos.y() < m1->pos.y())
+				s->restLength = 0.0;
+		}
+		else if (i == 1) {
+			// cursorPos.y will be negative if < 0 and will be positive if > 0
+			s->restLength = 0.01 - cursorPos.y();
+
+			// if cursPos.y is more than the last static sphere
+			// the spring has no rest length
+			if (cursorPos.y() >= m2->pos.y())
+				s->restLength = 0.0;
+		}
+
 	}
 }
 
@@ -860,7 +887,7 @@ void setupScene1() {
 
 
 	// springs
-	double k = 400.0;
+	double k = 1000.0;
 	double rest_length = 0.01;
 	double ksd = 50.0;
 
@@ -875,6 +902,8 @@ void setupScene(int i) {
 
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
+
+
 
 	return 0;	//return the nearest index of pActive
 }
