@@ -78,9 +78,10 @@ std::vector<Spring*> pSpring;
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
-void resetForce(Mass* m);
 
 bool DEBUG = false;
+
+bool under = false;
 
 
 //------------------------------------------------------------------------------
@@ -126,7 +127,7 @@ cGenericHapticDevicePtr hapticDevice;
 cLabel* labelRates;
 
 // a small sphere (cursor) representing the haptic device 
-cShapeSphere* cursor;
+cShapeCylinder* cursor;
 
 // flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -324,7 +325,8 @@ int main(int argc, char* argv[])
 	light->setDir(-1.0, 0.0, 0.0);
 
 	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.01);
+	cursor = new cShapeCylinder(0.005, 0.005, 0.01);
+	cursor->rotateAboutLocalAxisDeg(cVector3d(0, 1, 0), 90);
 
 	// insert cursor inside world
 	world->addChild(cursor);
@@ -605,9 +607,6 @@ void updateHaptics(void)
 			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
 			updateRestLength(pSpring[0], pSpring[1], cursorPos);
-			//resetForce(pActive[0]);
-			//resetForce(pStatic[0]);
-			//resetForce(pStatic[1]);
 		}
 		updateForceParticles(cursorPos);
 		
@@ -619,6 +618,12 @@ void updateHaptics(void)
 
 			cVector3d vel = m->vel + delta_t * acc;
 			cVector3d pos = m->pos + delta_t * vel;
+
+			// only render the force if it collides with the "point"
+			if ((m->pos - cursorPos).length() < m->pos.length()) {
+				force -= m->f;
+			}
+			
 
 			if (button == true) {
 				force = force + m->f;	//the force is distributed very unevenly among the springs?
@@ -681,12 +686,24 @@ cVector3d calculateForceDamping(Mass *m) {
 	return F_damping;
 }
 
+cVector3d calculateCollisionForce(Mass* m, cVector3d cursorPos) {
+	cVector3d F_c(0.0, 0.0, 0.0);
+
+	if ((m->pos - cursorPos).length() < m->pos.length()) {
+		m->vel = cVector3d(0.0, 0.0, 0.0);
+		cVector3d dir = cNormalize(m->pos - cursorPos);
+		F_c = -m->k * ((m->pos - cursorPos).length() * dir);
+	}
+
+	return F_c;
+}
+
 cVector3d getForceOnParticle(Mass *m, cVector3d cursorPos) {
 	cVector3d Fd = calculateForceDamping(m);	//air damping
-
-	cVector3d F = Fd;
+	cVector3d Fc = calculateCollisionForce(m, cursorPos);
+	cVector3d F = Fd + Fc;
 	
-	return F;
+	return cVector3d(0.0, 0.0, F.z());
 }
 
 cVector3d calculateForceSpring(Spring *s) {
@@ -796,7 +813,7 @@ void setupScene1() {
 	int size = 1;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 1.0;
+	double mass = 0.3;
 	addParticles(size, length, radius, mass);
 
 
