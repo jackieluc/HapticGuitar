@@ -77,7 +77,8 @@ std::vector<Spring*> pSpring;
 
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
-int findNearestP(cVector3d cursorPos);
+void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
+void resetForce(Mass* m);
 
 bool DEBUG = false;
 
@@ -599,17 +600,16 @@ void updateHaptics(void)
 		double delta_t = timer.getCurrentTimeSeconds();
 		timer.start(true);	//reset the clock
 
-		pActive[0]->pos = cVector3d(0.0, cursorPos.y(), 0.0);
-
 		if (button == true) {
-			int nearestPIndex = findNearestP(cursorPos);	//***using placeholder for function. Gotta add it in later
-			//int nearestPIndex = 1;
+			int nearestPIndex = 0;
 			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
+			updateRestLength(pSpring[0], pSpring[1], cursorPos);
+			//resetForce(pActive[0]);
+			//resetForce(pStatic[0]);
+			//resetForce(pStatic[1]);
 		}
 		updateForceParticles(cursorPos);
-
-		//std::cout << button << std::endl;
 		
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
@@ -621,33 +621,14 @@ void updateHaptics(void)
 			cVector3d pos = m->pos + delta_t * vel;
 
 			if (button == true) {
-				force = force + (m->f/pActive.size());	//the force is distributed very unevenly among the springs?
-														//static mass to active mass has the most stiffness b/c everything else has stiffness distributed?
-				vel = cVector3d(0, 0, 0);	//pos is updated very slowly by the velocity calculated above
-				/*Wishlist:
-				-immediate reloation of particle
-				-equal force on both side of the string
-				
-				This seem to suggest the feel is alright with one particle?
-				*/
+				force = force + m->f;	//the force is distributed very unevenly among the springs?
+				vel = cVector3d(0, 0, 0);	
 			}
 
 
 			m->vel = vel;
 			m->pos = pos;
 			m->updateParticle();
-
-			
-			/*
-			PseudoCode for force on haptic machine:
-			if(string is being tugged)
-				apply force to haptic machine (just the spring force)
-
-			else if(string is released)
-				ummmm... should something be here? I am not sure.
-			else
-				don't add any force to the machine (instability issues if allowed)
-			*/
 		}
 				
 		for (int i = 0; i < pSpring.size(); i++) {
@@ -693,30 +674,6 @@ void DebugMessage(std::string type, std::string output) {
 
 //====================Forces ======================================//
 
-cVector3d calculateForceGravity(Mass *m) {
-	cVector3d F_gravity = m->mass * cVector3d(0.0, 0.0, -9.81);
-	return F_gravity;
-}
-
-cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
-	// *** I don't think the particles should ever collide with other particles
-	//so this will just be cursor-particle collision
-	//P: Using a standard collision for now.
-	cVector3d F_collision(0.0, 0.0, 0.0);
-	
-
-	double curr_length_cursor = (m->pos - cursorPos).length();
-	double rest_length_cursor = m->p->getRadius() + cursor->getRadius();
-	cVector3d dir = cNormalize(m->pos - cursorPos);
-	
-	if (curr_length_cursor < rest_length_cursor) {
-		F_collision = -m->k * (curr_length_cursor - rest_length_cursor) * dir;
-	}
-			
-	return F_collision;
-	
-}
-
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
 	double c_air = 1.0;		//N/m
@@ -725,13 +682,8 @@ cVector3d calculateForceDamping(Mass *m) {
 }
 
 cVector3d getForceOnParticle(Mass *m, cVector3d cursorPos) {
-	cVector3d Fg = calculateForceGravity(m);	//gravity
-	cVector3d Fc = calculateForceCollision(m, cursorPos);	//collision
 	cVector3d Fd = calculateForceDamping(m);	//air damping
 
-	//cVector3d F = Fg + Fc + Fd;		//*** Add gravity, or take it out?
-	//cVector3d F = Fc + Fd;
-	//cVector3d F = Fg + Fd;
 	cVector3d F = Fd;
 	
 	return F;
@@ -745,6 +697,8 @@ cVector3d calculateForceSpring(Spring *s) {
 	double rest_length = s->restLength;
 	cVector3d dir = cNormalize(m1->pos - m2->pos);
 	cVector3d F_spring_12 = -s->k * (curr_length - rest_length) * dir;
+
+	F_spring_12 = cVector3d(0, 0, F_spring_12.z());
 
 	return F_spring_12;
 }
@@ -771,9 +725,6 @@ cVector3d getForceFromSpring(Spring *s) {
 	cVector3d Fsd = calculateForceSpringDamping(s);
 
 	cVector3d F = Fs + Fsd;
-	DebugMessage("FS", Fs.str());
-	DebugMessage("Fsd", Fsd.str());
-
 	return F;
 }
 
@@ -782,7 +733,6 @@ void updateForceParticles(cVector3d cursorPos) {
 	for (int i = 0; i < pActive.size(); i++) {
 		Mass* m = pActive[i];
 		cVector3d F_particle = getForceOnParticle(m, cursorPos);
-		//DebugMessage("F_PARTICLE", F_particle.str());
 		m->f = F_particle;
 	}
 
@@ -795,30 +745,6 @@ void updateForceParticles(cVector3d cursorPos) {
 		Mass* m2 = s->getMass2();
 		m1->f = m1->f + F_spring;
 		m2->f = m2->f - F_spring;
-
-		// reset rest length
-		s->restLength = 0.01;
-
-		// the two springs have inverse relationship
-		if (i == 0) {
-			// cursorPos.y will be negative if < 0 and will be positive if > 0
-			s->restLength = 0.01 + cursorPos.y();
-
-			// if cursPos.y is less than the first static sphere
-			// the spring has no rest length
-			if (cursorPos.y() < m1->pos.y())
-				s->restLength = 0.0;
-		}
-		else if (i == 1) {
-			// cursorPos.y will be negative if < 0 and will be positive if > 0
-			s->restLength = 0.01 - cursorPos.y();
-
-			// if cursPos.y is more than the last static sphere
-			// the spring has no rest length
-			if (cursorPos.y() >= m2->pos.y())
-				s->restLength = 0.0;
-		}
-
 	}
 }
 
@@ -828,6 +754,7 @@ void addParticles(int size, double length, double radius, double mass) {
 
 	cVector3d start_pos = cVector3d(0.0, -length / 2, 0.0);
 
+	
 	//active particles
 	for (int i = 0; i < size; i++) {
 		cShapeSphere* p = new cShapeSphere(radius);
@@ -850,20 +777,7 @@ void addParticles(int size, double length, double radius, double mass) {
 }
 
 void addSprings(double k, double rest_length, double ksd) {
-
-	for (int i = 0; i < pActive.size() - 1; i++) {
-		Mass* m1 = pActive[i];
-		Mass* m2 = pActive[i + 1];
-		cShapeLine* l = new cShapeLine(m1->pos, m2->pos);
-
-		Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
-
-		l->m_material->setGreenLight();
-		world->addChild(l);
-		pSpring.push_back(s);
-	}
-
-
+	
 	//add the two springs at the end
 	for (int i = 0; i < 2; i++) {
 		Mass* m1 = pStatic[i];
@@ -887,9 +801,9 @@ void setupScene1() {
 
 
 	// springs
-	double k = 1000.0;
+	double k = 400.0;
 	double rest_length = 0.01;
-	double ksd = 50.0;
+	double ksd = 0.0;
 
 	addSprings(k, rest_length, ksd);
 }
@@ -903,8 +817,6 @@ void setupScene(int i) {
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
 
-
-
 	return 0;	//return the nearest index of pActive
 }
 
@@ -914,3 +826,14 @@ but this seem to use audio files, not really the audio frequency itself
 	-Maybe there is a way to directly load audio frequency into the buffer?
 
 */
+
+
+//========================Position =====================================//
+void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos) {
+	//get relative position of rest length based on cursor position
+	double rest_length1 = fabs(s1->getMass1()->pos.y() - cursorPos.y()) / 5;
+	double rest_length2 = fabs(s2->getMass1()->pos.y() - cursorPos.y()) / 5;
+	
+	s1->restLength = rest_length1;
+	s2->restLength = rest_length2;
+}
