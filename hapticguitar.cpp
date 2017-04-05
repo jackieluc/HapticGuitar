@@ -608,7 +608,21 @@ void updateHaptics(void)
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
 			updateRestLength(pSpring[0], pSpring[1], cursorPos);
 		}
+		//if cursor position is near the mass spring
+		cVector3d m_pos_z = cVector3d(0, 0, pActive[0]->pos.z());
+		cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
+		double collisionDist = (m_pos_z - c_pos_z).length();
+		if (collisionDist < 0.01) {
+			pActive[0]->pos = cVector3d(pActive[0]->pos.x(), cursorPos.y(), pActive[0]->pos.z());
+		}
+
 		updateForceParticles(cursorPos);
+
+		// temporary virtual wall to find the string easier
+		if (cursorPos.x() < 0.0) {
+			double Fx = -2000 * cursorPos.x();
+			force = cVector3d(Fx, 0.0, 0.0);
+		}
 		
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
@@ -619,8 +633,10 @@ void updateHaptics(void)
 			cVector3d vel = m->vel + delta_t * acc;
 			cVector3d pos = m->pos + delta_t * vel;
 
+			cVector3d currentForce = cNormalize(force);
+
 			// only render the force if it collides with the "point"
-			if ((m->pos - cursorPos).length() < m->pos.length()) {
+			if (((m->pos - cursorPos).length() < m->p->getRadius())) {
 				force -= m->f;
 			}
 			
@@ -681,7 +697,7 @@ void DebugMessage(std::string type, std::string output) {
 
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
-	double c_air = 1.0;		//N/m
+	double c_air = 0.8;		//N/m
 	F_damping = -c_air * m->vel;
 	return F_damping;
 }
@@ -689,10 +705,10 @@ cVector3d calculateForceDamping(Mass *m) {
 cVector3d calculateCollisionForce(Mass* m, cVector3d cursorPos) {
 	cVector3d F_c(0.0, 0.0, 0.0);
 
-	if ((m->pos - cursorPos).length() < m->pos.length()) {
+	if ((m->pos - cursorPos).length() < m->p->getRadius()) {
 		m->vel = cVector3d(0.0, 0.0, 0.0);
 		cVector3d dir = cNormalize(m->pos - cursorPos);
-		F_c = -m->k * ((m->pos - cursorPos).length() * dir);
+		F_c = -m->k * (((m->pos - cursorPos).length() - 0.0) * dir);
 	}
 
 	return F_c;
@@ -778,13 +794,13 @@ void addParticles(int size, double length, double radius, double mass) {
 		cVector3d interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.0);
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
-		world->addChild(p);
+		//world->addChild(p);
 		pActive.push_back(m);
 	}
 
 	//static particles
 	for (int i = 0; i < 2; i++) {
-		cShapeSphere* p = new cShapeSphere(radius);
+		cShapeSphere* p = new cShapeSphere(0.001);
 		cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setRedDark();
@@ -813,12 +829,12 @@ void setupScene1() {
 	int size = 1;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 0.3;
+	double mass = 0.2;
 	addParticles(size, length, radius, mass);
 
 
 	// springs
-	double k = 400.0;
+	double k = 200.0;
 	double rest_length = 0.01;
 	double ksd = 0.0;
 

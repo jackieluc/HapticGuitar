@@ -15,3 +15,8 @@ Exploring the use of computer haptics to render the feeling of plucking or strum
 # How to run:
 
 For best performance run with the following settings: Release and x64 using Local Windows Debugger in Visual Studio.
+
+
+# Resources:
+
+1. [Guitar Pick](https://www.cgtrader.com/items/96223/download-page)
