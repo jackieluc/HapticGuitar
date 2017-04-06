@@ -27,7 +27,7 @@ struct Mass {
 		mass = _mass;
 		pos = position;
 		vel = cVector3d(0, 0, 0);
-		k = 1000;
+		k = 800;
 		p->setLocalPos(pos);
 	}
 
@@ -78,6 +78,7 @@ std::vector<Spring*> pSpring;
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
+int findNearestP(cVector3d cursorPos);
 
 bool DEBUG = false;
 
@@ -603,19 +604,25 @@ void updateHaptics(void)
 		timer.start(true);	//reset the clock
 
 		if (button == true) {
-			int nearestPIndex = 0;
+			int nearestPIndex = findNearestP(cursorPos);
 			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
 			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
-			updateRestLength(pSpring[0], pSpring[1], cursorPos);
+
+			if (nearestPIndex == 0)
+				updateRestLength(pSpring[0], pSpring[1], cursorPos);
+			else if (nearestPIndex == 1)
+				updateRestLength(pSpring[2], pSpring[3], cursorPos);
 		}
 		//if cursor position is near the mass spring
-		cVector3d m_pos_z = cVector3d(0, 0, pActive[0]->pos.z());
-		cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
-		double collisionDist = (m_pos_z - c_pos_z).length();
-		if (collisionDist < 0.01) {
-			pActive[0]->pos = cVector3d(pActive[0]->pos.x(), cursorPos.y(), pActive[0]->pos.z());
-		}
+		for (int i = 0; i < pActive.size(); i++) {
+			cVector3d m_pos_z = cVector3d(0, 0, pActive[i]->pos.z());
+			cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
+			double collisionDist = (m_pos_z - c_pos_z).length();
 
+			if (collisionDist < 0.01) {
+				pActive[i]->pos = cVector3d(pActive[i]->pos.x(), cursorPos.y(), pActive[i]->pos.z());
+			}
+		}
 		updateForceParticles(cursorPos);
 
 		// temporary virtual wall to find the string easier
@@ -632,8 +639,6 @@ void updateHaptics(void)
 
 			cVector3d vel = m->vel + delta_t * acc;
 			cVector3d pos = m->pos + delta_t * vel;
-
-			cVector3d currentForce = cNormalize(force);
 
 			// only render the force if it collides with the "point"
 			if (((m->pos - cursorPos).length() < m->p->getRadius())) {
@@ -792,16 +797,30 @@ void addParticles(int size, double length, double radius, double mass) {
 	for (int i = 0; i < size; i++) {
 		cShapeSphere* p = new cShapeSphere(radius);
 		cVector3d interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.0);
+
+		//if (i > size / 2) {
+		//	start_pos = cVector3d(0.0, -length / 2, 0.01);
+		//	interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.01);
+		//}
+
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
 		//world->addChild(p);
 		pActive.push_back(m);
 	}
 
+	
+
 	//static particles
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 2 * size; i++) {
 		cShapeSphere* p = new cShapeSphere(0.001);
 		cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
+
+		//if (i > size / 2) {
+		//	start_pos = cVector3d(0.0, -length / 2, 0.01);
+		//	interval = cVector3d(0.0, (double)i * length, 0.01);
+		//}
+
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setRedDark();
 		world->addChild(p);
@@ -809,12 +828,16 @@ void addParticles(int size, double length, double radius, double mass) {
 	}
 }
 
-void addSprings(double k, double rest_length, double ksd) {
+void addSprings(int size, double k, double rest_length, double ksd) {
 	
 	//add the two springs at the end
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 2 * size; i++) {
 		Mass* m1 = pStatic[i];
-		Mass* m2 = pActive[i * (pActive.size() - 1)];
+		Mass* m2 = pActive[0];
+
+		//if (i > size / 2)
+		//	m2 = pActive[1];
+
 		cShapeLine* l = new cShapeLine();
 
 		Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
@@ -826,7 +849,7 @@ void addSprings(double k, double rest_length, double ksd) {
 
 void setupScene1() {
 	//mass
-	int size = 1;
+	int size = 2;
 	double length = 0.1;
 	double radius = 0.01;
 	double mass = 0.2;
@@ -838,7 +861,7 @@ void setupScene1() {
 	double rest_length = 0.01;
 	double ksd = 0.0;
 
-	addSprings(k, rest_length, ksd);
+	addSprings(size, k, rest_length, ksd);
 }
 
 void setupScene(int i) {
@@ -849,8 +872,19 @@ void setupScene(int i) {
 
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
+	int smallestIndex = 0;
+	double smallestLength = 1000000.0;
 
-	return 0;	//return the nearest index of pActive
+
+	for (int i = 0; i < pActive.size(); i++) {
+		double currentLength = (pActive[i]->pos - cursorPos).length();
+		if (currentLength < smallestLength) {
+			smallestLength = currentLength;
+			smallestIndex = i;
+		}
+	}
+
+	return smallestIndex;	//return the nearest index of pActive
 }
 
 //===========================Sound ====================================//
