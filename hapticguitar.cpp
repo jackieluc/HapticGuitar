@@ -791,60 +791,55 @@ void updateForceParticles(cVector3d cursorPos) {
 void addParticles(int size, double length, double radius, double mass) {
 
 	cVector3d start_pos = cVector3d(0.0, -length / 2, 0.0);
-
 	
-	//active particles
-	for (int i = 0; i < size; i++) {
+	for (int j = 0; j < size; j++) {
+		
+		//active particles
 		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.0);
-
-		//if (i > size / 2) {
-		//	start_pos = cVector3d(0.0, -length / 2, 0.01);
-		//	interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.01);
-		//}
+		cVector3d interval = cVector3d(0.0, length / 2, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
-		//world->addChild(p);
-		pActive.push_back(m);
-	}
-
-	
-
-	//static particles
-	for (int i = 0; i < 2 * size; i++) {
-		cShapeSphere* p = new cShapeSphere(0.001);
-		cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
-
-		//if (i > size / 2) {
-		//	start_pos = cVector3d(0.0, -length / 2, 0.01);
-		//	interval = cVector3d(0.0, (double)i * length, 0.01);
-		//}
-
-		Mass* m = new Mass(p, mass, start_pos + interval);
-		p->m_material->setRedDark();
 		world->addChild(p);
-		pStatic.push_back(m);
+		pActive.push_back(m);
+		
+		//static particles
+		for (int i = 0; i < 2; i++) {
+			cShapeSphere* p = new cShapeSphere(0.001);
+			cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
+			
+			Mass* m = new Mass(p, mass, start_pos + interval);
+			p->m_material->setRedDark();
+			world->addChild(p);
+			pStatic.push_back(m);
+		}
+
+		start_pos = start_pos + cVector3d(0.0, 0.0, 0.01);
 	}
 }
 
 void addSprings(int size, double k, double rest_length, double ksd) {
 	
 	//add the two springs at the end
-	for (int i = 0; i < 2 * size; i++) {
-		Mass* m1 = pStatic[i];
-		Mass* m2 = pActive[0];
+	for (int j = 0; j < size; j++) {
+		for (int i = 0; i < 2; i++) {
+			Mass* m1 = pStatic[2*j + i];
+			Mass* m2 = pActive[j];
 
-		//if (i > size / 2)
-		//	m2 = pActive[1];
+			//if (i > size / 2)
+			//	m2 = pActive[1];
 
-		cShapeLine* l = new cShapeLine();
+			cShapeLine* l = new cShapeLine();
 
-		Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
-		l->m_material->setGreenLight();
-		world->addChild(l);
-		pSpring.push_back(s);
+			Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
+			l->m_material->setGreenLight();
+			world->addChild(l);
+			pSpring.push_back(s);
+		}
 	}
+	cout << "Active: " << pSpring.size() << endl;
+	cout << "Static: " << pSpring.size() << endl;
+	cout << "SPRING: " << pSpring.size() << endl;
 }
 
 void setupScene1() {
@@ -855,7 +850,7 @@ void setupScene1() {
 	double mass = 0.2;
 	addParticles(size, length, radius, mass);
 
-
+	
 	// springs
 	double k = 200.0;
 	double rest_length = 0.01;
