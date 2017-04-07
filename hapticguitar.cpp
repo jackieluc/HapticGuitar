@@ -631,9 +631,9 @@ void updateHaptics(void)
 
 		updateForceParticles(cursorPos);
 		// temporary virtual wall to find the string easier
-		if (cursorPos.x() < 0.0) {
-			double Fx = -2000 * cursorPos.x();
-			force = cVector3d(Fx, 0.0, 0.0);
+		if (cursorPos.x() < 0.01) {
+			double Fx = -2000 * (cursorPos.x() - 0.01);
+			force.add(cVector3d(Fx, 0.0, 0.0));
 		}
 
 		for (int i = 0; i < pActive.size(); i++) {
@@ -705,8 +705,10 @@ void DebugMessage(std::string type, std::string output) {
 
 cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
-	cVector3d m_pos = cVector3d(0.0, m->pos.y(), m->pos.z());
-	cVector3d c_pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
+	//cVector3d m_pos = cVector3d(0.0, m->pos.y(), m->pos.z());
+	//cVector3d c_pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
+	cVector3d m_pos = m->pos;
+	cVector3d c_pos = cursorPos;
 	double dist = (m_pos - c_pos).length();
 	double cylinderRadius = m->p->getRadius();
 	double cursorRadius = 0.01;
@@ -716,8 +718,9 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 
 	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
-		double mag = m->k * 1.5 * (collisionRadius - dist);
-		cVector3d dir = cNormalize(m_pos - c_pos);
+		double mag = 1.5 * m->k * (collisionRadius - dist);
+		cVector3d d = m_pos - c_pos;
+		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
 		//double rest_length = m->p->getRadius() + cursorRadius;
 		F_collision = mag * dir;
 	}
