@@ -614,7 +614,7 @@ void updateHaptics(void)
 			cVector3d m_pos_z = cVector3d(0, 0, pActive[i]->pos.z());
 			cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
 			collisionDist = (m_pos_z - c_pos_z).length();
-			if (collisionDist < 0.01) {
+			if (collisionDist < 0.015) {
 				pActive[i]->pos = cVector3d(pActive[i]->pos.x(), cursorPos.y(), pActive[i]->pos.z());
 			}
 		}
@@ -640,11 +640,10 @@ void updateHaptics(void)
 			//	vel = cVector3d(0, 0, 0);
 			//}
 
-			if (collisionDist < 0.01) {
+			if (collisionDist < 0.015) {
 				force -= m->f;
 				vel = cVector3d(0, 0, 0);
 			}
-
 
 			m->vel = vel;
 			m->pos = pos;
@@ -715,7 +714,7 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
-	double c_air = 1.0;		//N/m
+	double c_air = 0.5;		//N/m
 	F_damping = -c_air * m->vel;
 	return F_damping;
 }
@@ -792,13 +791,13 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
-	cVector3d start_pos = cVector3d(0.0, -length / 2, -0.02);
+	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.01);
 
 	for (int j = 0; j < size; j++) {
 
 		//active particles
 		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, length / 2, 0.0);
+		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
@@ -808,7 +807,7 @@ void addParticles(int size, double length, double radius, double mass) {
 		//static particles
 		for (int i = 0; i < 2; i++) {
 			cShapeSphere* p = new cShapeSphere(0.0005);
-			cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
+			cVector3d interval = cVector3d(0.0, (double)i *(length + 0.02), 0.0);
 
 			Mass* m = new Mass(p, mass, start_pos + interval);
 			p->m_material->setRedDark();
