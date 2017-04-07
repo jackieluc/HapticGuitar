@@ -78,7 +78,8 @@ std::vector<Spring*> pSpring;
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
-void resetForce(Mass* m);
+void setupScene1();
+//void resetForce(Mass* m);
 
 bool DEBUG = false;
 
@@ -493,6 +494,12 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		mirroredDisplay = !mirroredDisplay;
 		camera->setMirrorVertical(mirroredDisplay);
 	}
+
+	// reset scene
+	else if (a_key == GLFW_KEY_R)
+	{
+		setupScene1();
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -613,9 +620,12 @@ void updateHaptics(void)
 
 			cVector3d m_pos_z = cVector3d(0, 0, pActive[i]->pos.z());
 			cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
-			collisionDist[i] = (m_pos_z - c_pos_z).length();
-			if (collisionDist[i] < 0.015) {
-				pActive[i]->pos = cVector3d(pActive[i]->pos.x(), cursorPos.y(), pActive[i]->pos.z());
+			cVector3d m_pos = cVector3d(pActive[i]->pos.x(), 0.0, pActive[i]->pos.z());
+			cVector3d c_pos = cVector3d(cursorPos.x(), 0.0, cursorPos.z());
+			//collisionDist[i] = (m_pos_z - c_pos_z).length();
+			collisionDist[i] = (m_pos - c_pos).length();
+			if (collisionDist[i] < 0.01) {
+				pActive[i]->pos = cVector3d(0.0, cursorPos.y(), pActive[i]->pos.z());
 			}
 		}
 
@@ -640,8 +650,8 @@ void updateHaptics(void)
 			//	vel = cVector3d(0, 0, 0);
 			//}
 
-			if (collisionDist[i] < 0.015) {
-				force -= m->f;
+			if (collisionDist[i] < 0.01) {
+				force.add(-m->f);
 				vel = cVector3d(0, 0, 0);
 			}
 
@@ -699,17 +709,17 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d c_pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
 	double dist = (m_pos - c_pos).length();
 	double cylinderRadius = m->p->getRadius();
-	double cursorRadius = 0.005;
+	double cursorRadius = 0.01;
 
 	// TODO: "direction" of cursor when colliding with string and change the direction when
 	// the "active sphere" crosses the cursorPosition (don't use radius here)
 
-	double collisionRadius = cylinderRadius + cursorRadius;
+	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
-		double mag = m->k * (collisionRadius - dist);
+		double mag = m->k * 1.5 * (collisionRadius - dist);
 		cVector3d dir = cNormalize(m_pos - c_pos);
 		//double rest_length = m->p->getRadius() + cursorRadius;
-		F_collision = mag *dir;
+		F_collision = mag * dir;
 	}
 
 	return F_collision;
@@ -794,7 +804,7 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
-	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.01);
+	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.015);
 
 	for (int j = 0; j < size; j++) {
 
@@ -818,7 +828,7 @@ void addParticles(int size, double length, double radius, double mass) {
 			pStatic.push_back(m);
 		}
 
-		start_pos += cVector3d(0.0, 0.0, 0.01);
+		start_pos += cVector3d(0.0, 0.0, 0.015);
 	}
 }
 
@@ -840,20 +850,33 @@ void addSprings(int size, double k, double rest_length, double ksd) {
 	}
 }
 
+void clearScene() {
+	world->clearAllChildren();
+	world->addChild(camera);
+	world->addChild(cursor);
+	world->addChild(light);
+
+	pActive.clear();
+	pSpring.clear();
+	pStatic.clear();
+}
+
 void setupScene1() {
+	// clear the scene
+	clearScene();
+
 	//mass
 	int size = 4;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 0.1;
+	double mass = 0.03;
 	addParticles(size, length, radius, mass);
 
 
 	// springs
-	double k = 300.0;
+	double k = 200.0;
 	double rest_length = 0.01;
 	double ksd = 0.0;
-
 	addSprings(size, k, rest_length, ksd);
 }
 
