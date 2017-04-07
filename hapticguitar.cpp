@@ -607,14 +607,14 @@ void updateHaptics(void)
 		//	updaterestlength(pspring[0], pspring[1], cursorpos);
 		//}
 
-		double collisionDist = 0.0;
+		double* collisionDist = new double[4]();
 		//if cursor position is near the mass spring
 		for (int i = 0; i < pActive.size(); i++) {
 
 			cVector3d m_pos_z = cVector3d(0, 0, pActive[i]->pos.z());
 			cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
-			collisionDist = (m_pos_z - c_pos_z).length();
-			if (collisionDist < 0.015) {
+			collisionDist[i] = (m_pos_z - c_pos_z).length();
+			if (collisionDist[i] < 0.015) {
 				pActive[i]->pos = cVector3d(pActive[i]->pos.x(), cursorPos.y(), pActive[i]->pos.z());
 			}
 		}
@@ -640,7 +640,7 @@ void updateHaptics(void)
 			//	vel = cVector3d(0, 0, 0);
 			//}
 
-			if (collisionDist < 0.015) {
+			if (collisionDist[i] < 0.015) {
 				force -= m->f;
 				vel = cVector3d(0, 0, 0);
 			}
@@ -701,6 +701,9 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	double cylinderRadius = m->p->getRadius();
 	double cursorRadius = 0.005;
 
+	// TODO: "direction" of cursor when colliding with string and change the direction when
+	// the "active sphere" crosses the cursorPosition (don't use radius here)
+
 	double collisionRadius = cylinderRadius + cursorRadius;
 	if (dist < collisionRadius) {
 		double mag = m->k * (collisionRadius - dist);
@@ -714,7 +717,7 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
-	double c_air = 0.5;		//N/m
+	double c_air = 0.05;		//N/m
 	F_damping = -c_air * m->vel;
 	return F_damping;
 }
@@ -842,7 +845,7 @@ void setupScene1() {
 	int size = 4;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 0.2;
+	double mass = 0.1;
 	addParticles(size, length, radius, mass);
 
 
