@@ -615,22 +615,25 @@ void updateHaptics(void)
 		//}
 
 		double* collisionDist = new double[4]();
+
 		//if cursor position is near the mass spring
 		for (int i = 0; i < pActive.size(); i++) {
-
-			cVector3d m_pos_z = cVector3d(0, 0, pActive[i]->pos.z());
-			cVector3d c_pos_z = cVector3d(0, 0, cursorPos.z());
 			cVector3d m_pos = cVector3d(pActive[i]->pos.x(), 0.0, pActive[i]->pos.z());
 			cVector3d c_pos = cVector3d(cursorPos.x(), 0.0, cursorPos.z());
-			//collisionDist[i] = (m_pos_z - c_pos_z).length();
+
+			// get the distance between the mass position and the cursor position
 			collisionDist[i] = (m_pos - c_pos).length();
+
+			// we set the position of the mass in the same y position as the cursor
+			// this allows us to compute collision forces quite easily
 			if (collisionDist[i] < 0.01) {
 				pActive[i]->pos = cVector3d(0.0, cursorPos.y(), pActive[i]->pos.z());
 			}
 		}
 
 		updateForceParticles(cursorPos);
-		// temporary virtual wall to find the string easier
+		
+		// temporary virtual wall to find the strings easier
 		if (cursorPos.x() < 0.01) {
 			double Fx = -2000 * (cursorPos.x() - 0.01);
 			force.add(cVector3d(Fx, 0.0, 0.0));
@@ -650,6 +653,7 @@ void updateHaptics(void)
 			//	vel = cVector3d(0, 0, 0);
 			//}
 
+			// if there is collision, render the force to haptic device
 			if (collisionDist[i] < 0.01) {
 				force.add(-m->f);
 				vel = cVector3d(0, 0, 0);
@@ -705,23 +709,19 @@ void DebugMessage(std::string type, std::string output) {
 
 cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
-	//cVector3d m_pos = cVector3d(0.0, m->pos.y(), m->pos.z());
-	//cVector3d c_pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
-	cVector3d m_pos = m->pos;
-	cVector3d c_pos = cursorPos;
-	double dist = (m_pos - c_pos).length();
-	double cylinderRadius = m->p->getRadius();
-	double cursorRadius = 0.01;
 
-	// TODO: "direction" of cursor when colliding with string and change the direction when
-	// the "active sphere" crosses the cursorPosition (don't use radius here)
+	double dist = (m->pos - cursorPos).length();
+	double cursorRadius = 0.01;
+	double const scalar = 1.5;
 
 	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
-		double mag = 1.5 * m->k * (collisionRadius - dist);
-		cVector3d d = m_pos - c_pos;
+		double mag = scalar * m->k * (collisionRadius - dist);
+		cVector3d d = m->pos - cursorPos;
+
+		// we are only concerned with the particle's behaviour
+		// in the y and z axis
 		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
-		//double rest_length = m->p->getRadius() + cursorRadius;
 		F_collision = mag * dir;
 	}
 
