@@ -27,7 +27,7 @@ struct Mass {
 		mass = _mass;
 		pos = position;
 		vel = cVector3d(0, 0, 0);
-		k = 1000;
+		k = 400;
 		p->setLocalPos(pos);
 	}
 
@@ -78,7 +78,8 @@ std::vector<Spring*> pSpring;
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
-void resetForce(Mass* m);
+void setupScene1();
+//void resetForce(Mass* m);
 
 bool DEBUG = false;
 
@@ -324,7 +325,7 @@ int main(int argc, char* argv[])
 	light->setDir(-1.0, 0.0, 0.0);
 
 	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.01);
+	cursor = new cShapeSphere(0.005);
 
 	// insert cursor inside world
 	world->addChild(cursor);
@@ -493,6 +494,12 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		mirroredDisplay = !mirroredDisplay;
 		camera->setMirrorVertical(mirroredDisplay);
 	}
+
+	// reset scene
+	else if (a_key == GLFW_KEY_R)
+	{
+		setupScene1();
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -600,17 +607,38 @@ void updateHaptics(void)
 		double delta_t = timer.getCurrentTimeSeconds();
 		timer.start(true);	//reset the clock
 
-		if (button == true) {
-			int nearestPIndex = 0;
-			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
-			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
-			updateRestLength(pSpring[0], pSpring[1], cursorPos);
-			//resetForce(pActive[0]);
-			//resetForce(pStatic[0]);
-			//resetForce(pStatic[1]);
+		//if (button == true) {
+		//	int nearestpindex = 0;
+		//	pactive[nearestpindex]->pos = cvector3d(0.0, cursorpos.y(), cursorpos.z());
+		//	pactive[nearestpindex]->vel = cvector3d(0, 0, 0);
+		//	updaterestlength(pspring[0], pspring[1], cursorpos);
+		//}
+
+		double* collisionDist = new double[4]();
+
+		//if cursor position is near the mass spring
+		for (int i = 0; i < pActive.size(); i++) {
+			cVector3d m_pos = cVector3d(pActive[i]->pos.x(), 0.0, pActive[i]->pos.z());
+			cVector3d c_pos = cVector3d(cursorPos.x(), 0.0, cursorPos.z());
+
+			// get the distance between the mass position and the cursor position
+			collisionDist[i] = (m_pos - c_pos).length();
+
+			// we set the position of the mass in the same y position as the cursor
+			// this allows us to compute collision forces quite easily
+			if (collisionDist[i] < 0.01) {
+				pActive[i]->pos = cVector3d(0.0, cursorPos.y(), pActive[i]->pos.z());
+			}
 		}
+
 		updateForceParticles(cursorPos);
 		
+		// temporary virtual wall to find the strings easier
+		if (cursorPos.x() < 0.01) {
+			double Fx = -2000 * (cursorPos.x() - 0.01);
+			force.add(cVector3d(Fx, 0.0, 0.0));
+		}
+
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
 
@@ -620,17 +648,22 @@ void updateHaptics(void)
 			cVector3d vel = m->vel + delta_t * acc;
 			cVector3d pos = m->pos + delta_t * vel;
 
-			if (button == true) {
-				force = force + m->f;	//the force is distributed very unevenly among the springs?
-				vel = cVector3d(0, 0, 0);	
-			}
+			//if (button == true) {
+			//	force = force + m->f;	//the force is distributed very unevenly among the springs?
+			//	vel = cVector3d(0, 0, 0);
+			//}
 
+			// if there is collision, render the force to haptic device
+			if (collisionDist[i] < 0.01) {
+				force.add(-m->f);
+				vel = cVector3d(0, 0, 0);
+			}
 
 			m->vel = vel;
 			m->pos = pos;
 			m->updateParticle();
 		}
-				
+
 		for (int i = 0; i < pSpring.size(); i++) {
 			Spring* s = pSpring[i];
 			s->updateLine();
@@ -674,18 +707,40 @@ void DebugMessage(std::string type, std::string output) {
 
 //====================Forces ======================================//
 
+cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
+	cVector3d F_collision(0, 0, 0);
+
+	double dist = (m->pos - cursorPos).length();
+	double cursorRadius = 0.01;
+	double const scalar = 1.5;
+
+	double collisionRadius = cursorRadius;
+	if (dist < collisionRadius) {
+		double mag = scalar * m->k * (collisionRadius - dist);
+		cVector3d d = m->pos - cursorPos;
+
+		// we are only concerned with the particle's behaviour
+		// in the y and z axis
+		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
+		F_collision = mag * dir;
+	}
+
+	return F_collision;
+}
+
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
-	double c_air = 1.0;		//N/m
+	double c_air = 0.05;		//N/m
 	F_damping = -c_air * m->vel;
 	return F_damping;
 }
 
 cVector3d getForceOnParticle(Mass *m, cVector3d cursorPos) {
+	cVector3d Fc = calculateForceCollision(m, cursorPos);
 	cVector3d Fd = calculateForceDamping(m);	//air damping
 
-	cVector3d F = Fd;
-	
+	cVector3d F = Fc + Fd;
+
 	return F;
 }
 
@@ -752,60 +807,80 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
-	cVector3d start_pos = cVector3d(0.0, -length / 2, 0.0);
+	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.015);
 
-	
-	//active particles
-	for (int i = 0; i < size; i++) {
+	for (int j = 0; j < size; j++) {
+
+		//active particles
 		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.0);
+		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
+
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
-		world->addChild(p);
+		//world->addChild(p);
 		pActive.push_back(m);
-	}
 
-	//static particles
-	for (int i = 0; i < 2; i++) {
-		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
-		Mass* m = new Mass(p, mass, start_pos + interval);
-		p->m_material->setRedDark();
-		world->addChild(p);
-		pStatic.push_back(m);
+		//static particles
+		for (int i = 0; i < 2; i++) {
+			cShapeSphere* p = new cShapeSphere(0.0005);
+			cVector3d interval = cVector3d(0.0, (double)i *(length + 0.02), 0.0);
+
+			Mass* m = new Mass(p, mass, start_pos + interval);
+			p->m_material->setRedDark();
+			world->addChild(p);
+			pStatic.push_back(m);
+		}
+
+		start_pos += cVector3d(0.0, 0.0, 0.015);
 	}
 }
 
-void addSprings(double k, double rest_length, double ksd) {
-	
-	//add the two springs at the end
-	for (int i = 0; i < 2; i++) {
-		Mass* m1 = pStatic[i];
-		Mass* m2 = pActive[i * (pActive.size() - 1)];
-		cShapeLine* l = new cShapeLine();
+void addSprings(int size, double k, double rest_length, double ksd) {
 
-		Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
-		l->m_material->setGreenLight();
-		world->addChild(l);
-		pSpring.push_back(s);
+	//add the two springs at the end
+	for (int j = 0; j < size; j++) {
+		for (int i = 0; i < 2; i++) {
+			Mass* m1 = pStatic[2 * j + i];
+			Mass* m2 = pActive[j];
+
+			cShapeLine* l = new cShapeLine();
+
+			Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
+			l->m_material->setGreenLight();
+			world->addChild(l);
+			pSpring.push_back(s);
+		}
 	}
+}
+
+void clearScene() {
+	world->clearAllChildren();
+	world->addChild(camera);
+	world->addChild(cursor);
+	world->addChild(light);
+
+	pActive.clear();
+	pSpring.clear();
+	pStatic.clear();
 }
 
 void setupScene1() {
+	// clear the scene
+	clearScene();
+
 	//mass
-	int size = 1;
+	int size = 4;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 1.0;
+	double mass = 0.03;
 	addParticles(size, length, radius, mass);
 
 
 	// springs
-	double k = 400.0;
+	double k = 200.0;
 	double rest_length = 0.01;
 	double ksd = 0.0;
-
-	addSprings(k, rest_length, ksd);
+	addSprings(size, k, rest_length, ksd);
 }
 
 void setupScene(int i) {
@@ -816,14 +891,25 @@ void setupScene(int i) {
 
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
+	int smallestIndex = 0;
+	double smallestLength = 1000000.0;
 
-	return 0;	//return the nearest index of pActive
+
+	for (int i = 0; i < pActive.size(); i++) {
+		double currentLength = (pActive[i]->pos - cursorPos).length();
+		if (currentLength < smallestLength) {
+			smallestLength = currentLength;
+			smallestIndex = i;
+		}
+	}
+
+	return smallestIndex;	//return the nearest index of pActive
 }
 
 //===========================Sound ====================================//
 /*Might need to learn OpenAL (Open Audio Library) for sounds
 but this seem to use audio files, not really the audio frequency itself
-	-Maybe there is a way to directly load audio frequency into the buffer?
+-Maybe there is a way to directly load audio frequency into the buffer?
 
 */
 
@@ -833,7 +919,7 @@ void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos) {
 	//get relative position of rest length based on cursor position
 	double rest_length1 = fabs(s1->getMass1()->pos.y() - cursorPos.y()) / 5;
 	double rest_length2 = fabs(s2->getMass1()->pos.y() - cursorPos.y()) / 5;
-	
+
 	s1->restLength = rest_length1;
 	s2->restLength = rest_length2;
 }
