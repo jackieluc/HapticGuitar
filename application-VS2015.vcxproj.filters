@@ -7,7 +7,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="application.cpp">
+    <ClCompile Include="hapticguitar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

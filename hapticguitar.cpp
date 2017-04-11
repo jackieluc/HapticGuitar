@@ -27,7 +27,7 @@ struct Mass {
 		mass = _mass;
 		pos = position;
 		vel = cVector3d(0, 0, 0);
-		k = 1000;
+		k = 400;
 		p->setLocalPos(pos);
 	}
 
@@ -75,12 +75,36 @@ std::vector<Mass*> pActive;
 std::vector<Mass*> pStatic;
 std::vector<Spring*> pSpring;
 
+std::vector<double> E_string = {330, 349, 370, 392, 415, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988, 1047 };
+std::vector<double> B_string = {247, 262, 277, 294, 311, 330, 349, 370, 392, 415};
+std::vector<double> G_string = {196, 208, 220, 233, 247, 262, 277, 294, 311, 330, 349, 370};
+std::vector<double> D_string = {147, 156, 165, 175, 185, 196, 208, 220, 233, 247, 262};
+
+
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
-void resetForce(Mass* m);
+void setupScene1();
+//void resetForce(Mass* m);
 
 bool DEBUG = false;
+
+//----sounds ----
+//audio device to play sound
+cAudioDevice* audioDevice;
+
+//audio buffer to store sound files
+std::vector<cAudioBuffer*> audioBuffer;
+std::vector<double>	audioBufferFrequency;		//for tuning beyond the integer place
+
+//position where the audio comes from (1 per string)
+std::vector<cAudioSource*> audioSource;
+
+void initSound();
+void updateAudioSourcePosVel(cAudioSource* audioSource, Mass* m);
+void changeFrequency(double delta_f, int buffer_index);
+void changeNote(int note_pos, int buffer_index);
+
 
 
 //------------------------------------------------------------------------------
@@ -154,6 +178,8 @@ int height = 0;
 
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
+
+
 
 
 //------------------------------------------------------------------------------
@@ -324,7 +350,7 @@ int main(int argc, char* argv[])
 	light->setDir(-1.0, 0.0, 0.0);
 
 	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.01);
+	cursor = new cShapeSphere(0.005);
 
 	// insert cursor inside world
 	world->addChild(cursor);
@@ -364,6 +390,14 @@ int main(int argc, char* argv[])
 
 	// *** Setup scene 1
 	setupScene(1);
+
+	//--------------------------------------------------------------------------
+	//	SETUP AUDIO
+	//	Code from: "25-sounds.cpp" of chai3d examples
+	//--------------------------------------------------------------------------
+
+	//create an audio buffer and load audio wave file
+	initSound();
 
 	//--------------------------------------------------------------------------
 	// WIDGETS
@@ -446,6 +480,8 @@ void errorCallback(int a_error, const char* a_description)
 
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
 {
+
+	double delta_f = 0.001;
 	// filter calls that only include a key press
 	if (a_action != GLFW_PRESS)
 	{
@@ -453,13 +489,13 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	}
 
 	// option - exit
-	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+	else if ((a_key == GLFW_KEY_ESCAPE))
 	{
 		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
 	}
 
 	// option - toggle fullscreen
-	else if (a_key == GLFW_KEY_F)
+	else if (a_key == GLFW_KEY_P)
 	{
 		// toggle state variable
 		fullscreen = !fullscreen;
@@ -488,11 +524,56 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	}
 
 	// option - toggle vertical mirroring
-	else if (a_key == GLFW_KEY_M)
-	{
-		mirroredDisplay = !mirroredDisplay;
-		camera->setMirrorVertical(mirroredDisplay);
-	}
+	//else if (a_key == GLFW_KEY_M)
+	//{
+	//	mirroredDisplay = !mirroredDisplay;
+	//	camera->setMirrorVertical(mirroredDisplay);
+	//}
+
+	// reset scene
+	//else if (a_key == GLFW_KEY_R)
+	//{
+	//	setupScene1();
+	//}
+
+	//tuning of guitar
+	else if (a_key == GLFW_KEY_M) {changeFrequency(delta_f, 0);}
+	else if (a_key == GLFW_KEY_N) {changeFrequency(-delta_f, 0);}
+
+	else if (a_key == GLFW_KEY_J) { changeFrequency(delta_f, 1); }
+	else if (a_key == GLFW_KEY_K) { changeFrequency(-delta_f, 1); }
+
+	else if (a_key == GLFW_KEY_U) { changeFrequency(delta_f, 2); }
+	else if (a_key == GLFW_KEY_I) { changeFrequency(-delta_f, 2); }
+
+	else if (a_key == GLFW_KEY_7) { changeFrequency(delta_f, 3); }
+	else if (a_key == GLFW_KEY_8) { changeFrequency(-delta_f, 3); }
+
+	//changing notes of a guitar
+	if (a_key == GLFW_KEY_B) { changeNote(4, 0); }
+	else if (a_key == GLFW_KEY_V) { changeNote(3, 0); }
+	else if (a_key == GLFW_KEY_C) { changeNote(2, 0); }
+	else if (a_key == GLFW_KEY_X) { changeNote(1, 0); }
+	else if (a_key == GLFW_KEY_Z) { changeNote(0, 0); }
+	
+	if (a_key == GLFW_KEY_G) { changeNote(4, 1); }
+	else if (a_key == GLFW_KEY_F) { changeNote(3, 1); }
+	else if (a_key == GLFW_KEY_D) { changeNote(2, 1); }
+	else if (a_key == GLFW_KEY_S) { changeNote(1, 1); }
+	else if (a_key == GLFW_KEY_A) { changeNote(0, 1); }
+
+	if (a_key == GLFW_KEY_T) { changeNote(4, 2); }
+	else if (a_key == GLFW_KEY_R) { changeNote(3, 2); }
+	else if (a_key == GLFW_KEY_E) { changeNote(2, 2); }
+	else if (a_key == GLFW_KEY_W) { changeNote(1, 2); }
+	else if (a_key == GLFW_KEY_Q) { changeNote(0, 2); }
+
+	if (a_key == GLFW_KEY_5) { changeNote(4, 3); }
+	else if (a_key == GLFW_KEY_4) { changeNote(3, 3); }
+	else if (a_key == GLFW_KEY_3) { changeNote(2, 3); }
+	else if (a_key == GLFW_KEY_2) { changeNote(1, 3); }
+	else if (a_key == GLFW_KEY_1) { changeNote(0, 3); }
+
 }
 
 //------------------------------------------------------------------------------
@@ -561,6 +642,12 @@ void updateHaptics(void)
 	cPrecisionClock timer;
 	timer.start();
 
+	int counter = 50000;
+	int counterMin = 0;
+	int counterMax = 100000;
+	int counterDirection = 1;
+	float prevVol = 0.0;
+
 	// main haptic simulation loop
 	while (simulationRunning)
 	{
@@ -593,24 +680,41 @@ void updateHaptics(void)
 		// COMPUTE FORCES
 		/////////////////////////////////////////////////////////////////////
 
+		//reset values
 		cVector3d force(0, 0, 0);
 		cVector3d torque(0, 0, 0);
 		double gripperForce = 0.0;
-
+		
+		force = cVector3d(0, 0, 0);
+			
 		double delta_t = timer.getCurrentTimeSeconds();
 		timer.start(true);	//reset the clock
+					
+		double* collisionDist = new double[4]();
 
-		if (button == true) {
-			int nearestPIndex = 0;
-			pActive[nearestPIndex]->pos = cVector3d(0.0, cursorPos.y(), cursorPos.z());
-			pActive[nearestPIndex]->vel = cVector3d(0, 0, 0);
-			updateRestLength(pSpring[0], pSpring[1], cursorPos);
-			//resetForce(pActive[0]);
-			//resetForce(pStatic[0]);
-			//resetForce(pStatic[1]);
+		//if cursor position is near the mass spring
+		for (int i = 0; i < pActive.size(); i++) {
+			cVector3d m_pos = cVector3d(pActive[i]->pos.x(), 0.0, pActive[i]->pos.z());
+			cVector3d c_pos = cVector3d(cursorPos.x(), 0.0, cursorPos.z());
+
+			// get the distance between the mass position and the cursor position
+			collisionDist[i] = (m_pos - c_pos).length();
+
+			// we set the position of the mass in the same y position as the cursor
+			// this allows us to compute collision forces quite easily
+			if (collisionDist[i] < 0.01) {
+				pActive[i]->pos = cVector3d(0.0, cursorPos.y(), pActive[i]->pos.z());
+			}
 		}
+
 		updateForceParticles(cursorPos);
 		
+		// temporary virtual wall to find the strings easier
+		if (cursorPos.x() < 0.01) {
+			double Fx = -2000 * (cursorPos.x() - 0.01);
+			force.add(cVector3d(Fx, 0.0, 0.0));
+		}
+
 		for (int i = 0; i < pActive.size(); i++) {
 			Mass* m = pActive[i];
 
@@ -620,17 +724,39 @@ void updateHaptics(void)
 			cVector3d vel = m->vel + delta_t * acc;
 			cVector3d pos = m->pos + delta_t * vel;
 
-			if (button == true) {
-				force = force + m->f;	//the force is distributed very unevenly among the springs?
-				vel = cVector3d(0, 0, 0);	
+			// if there is collision, render the force to haptic device
+			if (collisionDist[i] < 0.01) {
+				force.add(-m->f);
+				vel = cVector3d(0, 0, 0);
 			}
-
 
 			m->vel = vel;
 			m->pos = pos;
 			m->updateParticle();
+
+			//----- audio (requires updated mass's velocity and position)
+
+			if (collisionDist[i] > 0.01) {
+					
+				updateAudioSourcePosVel(audioSource[i], m);
+					
+				float maxAccleration = 100;
+				float vol = std::min(abs(acc.z() / maxAccleration), 1.0);
+				vol = std::max(vol, (float)0.001);
+				if (vol != prevVol) {
+					prevVol = vol;
+					audioSource[i]->setGain(vol);
+				}					
+			}
+
+			else {
+				//minimum volume
+				audioSource[i]->setGain(0.001);
+			}
+
+			
 		}
-				
+
 		for (int i = 0; i < pSpring.size(); i++) {
 			Spring* s = pSpring[i];
 			s->updateLine();
@@ -674,18 +800,40 @@ void DebugMessage(std::string type, std::string output) {
 
 //====================Forces ======================================//
 
+cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
+	cVector3d F_collision(0, 0, 0);
+
+	double dist = (m->pos - cursorPos).length();
+	double cursorRadius = 0.01;
+	double const scalar = 1.5;
+
+	double collisionRadius = cursorRadius;
+	if (dist < collisionRadius) {
+		double mag = scalar * m->k * (collisionRadius - dist);
+		cVector3d d = m->pos - cursorPos;
+
+		// we are only concerned with the particle's behaviour
+		// in the y and z axis
+		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
+		F_collision = mag * dir;
+	}
+
+	return F_collision;
+}
+
 cVector3d calculateForceDamping(Mass *m) {
 	cVector3d F_damping;
-	double c_air = 1.0;		//N/m
+	double c_air = 0.05;		//N/m
 	F_damping = -c_air * m->vel;
 	return F_damping;
 }
 
 cVector3d getForceOnParticle(Mass *m, cVector3d cursorPos) {
+	cVector3d Fc = calculateForceCollision(m, cursorPos);
 	cVector3d Fd = calculateForceDamping(m);	//air damping
 
-	cVector3d F = Fd;
-	
+	cVector3d F = Fc + Fd;
+
 	return F;
 }
 
@@ -752,60 +900,80 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
-	cVector3d start_pos = cVector3d(0.0, -length / 2, 0.0);
+	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.015);
 
-	
-	//active particles
-	for (int i = 0; i < size; i++) {
+	for (int j = 0; j < size; j++) {
+
+		//active particles
 		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, ((double)i + 1) * length / (size + 1), 0.0);
+		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
+
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
-		world->addChild(p);
+		//world->addChild(p);
 		pActive.push_back(m);
-	}
 
-	//static particles
-	for (int i = 0; i < 2; i++) {
-		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, (double)i *length, 0.0);
-		Mass* m = new Mass(p, mass, start_pos + interval);
-		p->m_material->setRedDark();
-		world->addChild(p);
-		pStatic.push_back(m);
+		//static particles
+		for (int i = 0; i < 2; i++) {
+			cShapeSphere* p = new cShapeSphere(0.0005);
+			cVector3d interval = cVector3d(0.0, (double)i *(length + 0.02), 0.0);
+
+			Mass* m = new Mass(p, mass, start_pos + interval);
+			p->m_material->setRedDark();
+			world->addChild(p);
+			pStatic.push_back(m);
+		}
+
+		start_pos += cVector3d(0.0, 0.0, 0.015);
 	}
 }
 
-void addSprings(double k, double rest_length, double ksd) {
-	
-	//add the two springs at the end
-	for (int i = 0; i < 2; i++) {
-		Mass* m1 = pStatic[i];
-		Mass* m2 = pActive[i * (pActive.size() - 1)];
-		cShapeLine* l = new cShapeLine();
+void addSprings(int size, double k, double rest_length, double ksd) {
 
-		Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
-		l->m_material->setGreenLight();
-		world->addChild(l);
-		pSpring.push_back(s);
+	//add the two springs at the end
+	for (int j = 0; j < size; j++) {
+		for (int i = 0; i < 2; i++) {
+			Mass* m1 = pStatic[2 * j + i];
+			Mass* m2 = pActive[j];
+
+			cShapeLine* l = new cShapeLine();
+
+			Spring* s = new Spring(l, k, rest_length, ksd, m1, m2);
+			l->m_material->setGreenLight();
+			world->addChild(l);
+			pSpring.push_back(s);
+		}
 	}
+}
+
+void clearScene() {
+	world->clearAllChildren();
+	world->addChild(camera);
+	world->addChild(cursor);
+	world->addChild(light);
+
+	pActive.clear();
+	pSpring.clear();
+	pStatic.clear();
 }
 
 void setupScene1() {
+	// clear the scene
+	clearScene();
+
 	//mass
-	int size = 1;
+	int size = 4;
 	double length = 0.1;
 	double radius = 0.01;
-	double mass = 1.0;
+	double mass = 0.03;
 	addParticles(size, length, radius, mass);
 
 
 	// springs
-	double k = 400.0;
+	double k = 200.0;
 	double rest_length = 0.01;
 	double ksd = 0.0;
-
-	addSprings(k, rest_length, ksd);
+	addSprings(size, k, rest_length, ksd);
 }
 
 void setupScene(int i) {
@@ -816,24 +984,156 @@ void setupScene(int i) {
 
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
+	int smallestIndex = 0;
+	double smallestLength = 1000000.0;
 
-	return 0;	//return the nearest index of pActive
+
+	for (int i = 0; i < pActive.size(); i++) {
+		double currentLength = (pActive[i]->pos - cursorPos).length();
+		if (currentLength < smallestLength) {
+			smallestLength = currentLength;
+			smallestIndex = i;
+		}
+	}
+
+	return smallestIndex;	//return the nearest index of pActive
 }
-
-//===========================Sound ====================================//
-/*Might need to learn OpenAL (Open Audio Library) for sounds
-but this seem to use audio files, not really the audio frequency itself
-	-Maybe there is a way to directly load audio frequency into the buffer?
-
-*/
-
 
 //========================Position =====================================//
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos) {
 	//get relative position of rest length based on cursor position
 	double rest_length1 = fabs(s1->getMass1()->pos.y() - cursorPos.y()) / 5;
 	double rest_length2 = fabs(s2->getMass1()->pos.y() - cursorPos.y()) / 5;
-	
+
 	s1->restLength = rest_length1;
 	s2->restLength = rest_length2;
 }
+
+//===========================Sound ====================================//
+
+void initLoadedAudio(cAudioBuffer* audioBuffer, string fileName) {
+	bool fileload = audioBuffer->loadFromFile(fileName);
+
+	//check for errors
+	if (!(fileload)) {
+		cout << "Error - Sound file failed to load or initialize correctly." << endl;
+		close();
+	}
+}
+
+void createSinWave(double buf_size, double freq, double sample_rate, cAudioBuffer* audioBuffer) {
+	unsigned char *samples;
+	samples = new unsigned char[buf_size];
+	for (int i = 0; i < buf_size; ++i) {
+		double a = 32760.0 * sin((2.f*float(M_PI)*freq) / sample_rate * (double)i);
+		samples[i] = a;
+	}
+	//We set up how fast the sound will be played (approximately) on here, eh?
+	audioBuffer->setup(samples, buf_size, freq, false, sample_rate);
+}
+
+void initGeneratedAudio(cAudioBuffer* audioBuffer, float freq, unsigned sample_rate, int type) {
+	/* Fill buffer with Sine-Wave */
+	int seconds = 4;
+	size_t buf_size = seconds * sample_rate;
+	if (type == 0) {
+		createSinWave(buf_size, freq, sample_rate, audioBuffer);
+	}
+}
+
+
+void playAudioSource(cAudioSource* audioSource, cAudioBuffer* audioBuffer, cVector3d position, bool loop) {
+	//assign audio buffer to audio source
+	audioSource->setAudioBuffer(audioBuffer);
+
+	//loop sound
+	audioSource->setLoop(loop);
+
+	//volume of sound
+	audioSource->setGain(0.0);
+
+	//pitch of sound
+	audioSource->setPitch(1.0);
+
+	//play sound
+	audioSource->play();
+}
+
+void updateAudioSourcePosVel(cAudioSource* audioSource, Mass* m) {
+	audioSource->setSourcePos(m->pos);
+	audioSource->setSourceVel(m->vel);
+}
+
+
+void initSound() {
+	//audio device to play sounds
+	audioDevice = new cAudioDevice();
+
+	//attach audio device to camera?
+	camera->attachAudioDevice(audioDevice);
+
+	//If it sounds like a guitar, tuned like a guitar, feels like a guitar,
+	//but doesn't look like a guitar, is it a guitar?
+	audioBufferFrequency.push_back(329.63);
+	audioBufferFrequency.push_back(246.94);
+	audioBufferFrequency.push_back(196.06);
+	audioBufferFrequency.push_back(146.83);
+	
+	int size = 4;
+	for (int i = 0; i < size; i++) {
+		audioBuffer.push_back(new cAudioBuffer());
+		initGeneratedAudio(audioBuffer[i], audioBufferFrequency[i], 1, 0);	//good (kinda static-y)
+	}
+	
+	//create audio source (ie. where the audio is played from)
+	for (int i = 0; i < size; i++) {
+		audioSource.push_back(new cAudioSource());
+		playAudioSource(audioSource[i], audioBuffer[i], cursor->getLocalPos(), true);
+	}
+
+}
+
+void changeFrequency(double delta_f, int buffer_index) {
+
+	audioBufferFrequency[buffer_index] = audioBufferFrequency[buffer_index] + delta_f;
+	cout << "Freq[" << buffer_index << "]:" << audioBufferFrequency[buffer_index] << endl;
+	audioSource[buffer_index]->~cAudioSource();
+	audioSource[buffer_index] = new cAudioSource();
+	initGeneratedAudio(audioBuffer[buffer_index], audioBufferFrequency[buffer_index], 1, 0);
+	playAudioSource(audioSource[buffer_index], audioBuffer[buffer_index], cursor->getLocalPos(), true);
+	audioSource[buffer_index]->play();
+}
+
+void changeNote(int note_pos, int buffer_index) {
+	double freq;
+	if (buffer_index == 0) { freq = E_string[note_pos] / audioBufferFrequency[buffer_index]; }
+	else if (buffer_index == 1) { freq = B_string[note_pos] / audioBufferFrequency[buffer_index]; }
+	else if (buffer_index == 2) { freq = G_string[note_pos] / audioBufferFrequency[buffer_index]; }
+	else if (buffer_index == 3) { freq = D_string[note_pos] / audioBufferFrequency[buffer_index]; }
+	cout << "Freq[" << note_pos << "," << buffer_index << "]: " << freq << endl;
+	audioSource[buffer_index]->setPitch(freq);
+}
+
+/*
+TODO:
+-extend sound to multiple strings (done)
+	-just have 4 audioSource
+-tune the guitar (done)
+	-different frequency have different loudness
+	-they seem to be very sensitive to the frequency of the sound generated
+-add in ability to switch notes
+	-I want to either change pitch, or change frequency like how i do when tuning the guitar
+	-i highly suggest doing the pitch method
+-add in more generated sounds
+	-I dunno... something different
+-whammy bar
+-pre-recording?
+
+
+
+*/
+
+/*
+-I got to raise the volume of low frequency sounds by a lot...
+	-I think I need to raise it almost exponentially?
+*/

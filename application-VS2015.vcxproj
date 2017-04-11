@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="application.cpp" />
+    <ClCompile Include="hapticguitar.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>application-GLFW</ProjectName>
+    <ProjectName>HapticGuitar-GLFW</ProjectName>
     <ProjectGuid>{DF4A1F32-BA3E-4604-A9F5-721CAAA9EA71}</ProjectGuid>
     <RootNamespace>application-GLUT</RootNamespace>
     <Keyword>Win32Proj</Keyword>
