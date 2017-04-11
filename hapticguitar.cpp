@@ -149,8 +149,8 @@ cGenericHapticDevicePtr hapticDevice;
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
 
-// a small sphere (cursor) representing the haptic device 
-cShapeSphere* cursor;
+// a multi-mesh representing the haptic device as a guitar pick
+cMultiMesh* cursor;
 
 // flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -349,8 +349,10 @@ int main(int argc, char* argv[])
 	// define direction of light beam
 	light->setDir(-1.0, 0.0, 0.0);
 
-	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.005);
+	// create a multi-mesh to represent the haptic device as a guitar pick
+	cursor = new cMultiMesh();
+	cursor->loadFromFile("GuitarPick.3ds");
+	cursor->scale(0.01);
 
 	// insert cursor inside world
 	world->addChild(cursor);
@@ -804,17 +806,15 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
 
 	double dist = (m->pos - cursorPos).length();
-	double cursorRadius = 0.01;
+	double collisionRadius = 0.01;
 	double const scalar = 1.5;
 
-	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
 		double mag = scalar * m->k * (collisionRadius - dist);
-		cVector3d d = m->pos - cursorPos;
+		cVector3d d_vector = m->pos - cursorPos;
 
-		// we are only concerned with the particle's behaviour
-		// in the y and z axis
-		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
+		// we are only concerned with the particle's behaviour in the y and z axis
+		cVector3d dir = cNormalize(cVector3d(0.0, d_vector.y(), d_vector.z()));
 		F_collision = mag * dir;
 	}
 
@@ -909,8 +909,6 @@ void addParticles(int size, double length, double radius, double mass) {
 		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
-		p->m_material->setBlueLightSteel();
-		//world->addChild(p);
 		pActive.push_back(m);
 
 		//static particles
