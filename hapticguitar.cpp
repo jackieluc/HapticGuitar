@@ -84,11 +84,15 @@ std::vector<double> D_string = {147, 156, 165, 175, 185, 196, 208, 220, 233, 247
 
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
-void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
 void setupScene1();
-//void resetForce(Mass* m);
 
 bool DEBUG = false;
+
+// background for the scene
+cBackground* background;
+
+// enable/disable widget to display graphics/haptics rate
+bool showWidget = true;
 
 //----sounds ----
 //audio device to play sound
@@ -223,9 +227,10 @@ int main(int argc, char* argv[])
 	cout << "CHAI3D" << endl;
 	cout << "-----------------------------------" << endl << endl << endl;
 	cout << "Keyboard Options:" << endl << endl;
-	cout << "[f] - Enable/Disable full screen mode" << endl;
+	cout << "[p] - Enable/Disable full screen mode" << endl;
 	cout << "[m] - Enable/Disable vertical mirroring" << endl;
-	cout << "[q] - Exit application" << endl;
+	cout << "[0] - Enable/Disable debug of display/haptic rate" << endl;
+	cout << "[q] - Exit application" << endl;	
 	cout << endl << endl;
 
 
@@ -355,6 +360,33 @@ int main(int argc, char* argv[])
 
 	// insert cursor inside world
 	world->addChild(cursor);
+
+	//==========================================================================
+	// Inspiration from 19-space.cpp under chai3d-3.2.0/examples/GLFW/19-space
+	//==========================================================================
+
+	// create a background
+	background = new cBackground();
+	camera->m_backLayer->addChild(background);
+
+	// load a texture file
+	bool fileload = background->loadFromFile("images/guitar.jpg");
+	if (!fileload)
+	{
+		#if defined(_MSVC)
+		fileload = background->loadFromFile("images/guitar.jpg");
+		#endif
+	}
+	if (!fileload)
+	{
+		cout << "Error - Background image failed to load correctly." << endl;
+		close();
+		return (-1);
+	}
+
+	//==========================================================================
+	// End 19-space
+	//==========================================================================
 	
 	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
@@ -539,9 +571,12 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	//	setupScene1();
 	//}
 
+	// toggle widget to enable/disable display of graphic / haptic rates
+	else if (a_key == GLFW_KEY_0) { showWidget = !showWidget;}
+
 	//tuning of guitar
-	else if (a_key == GLFW_KEY_M) {changeFrequency(delta_f, 0);}
-	else if (a_key == GLFW_KEY_N) {changeFrequency(-delta_f, 0);}
+	else if (a_key == GLFW_KEY_M) { changeFrequency(delta_f, 0); }
+	else if (a_key == GLFW_KEY_N) { changeFrequency(-delta_f, 0); }
 
 	else if (a_key == GLFW_KEY_J) { changeFrequency(delta_f, 1); }
 	else if (a_key == GLFW_KEY_K) { changeFrequency(-delta_f, 1); }
@@ -553,25 +588,25 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_8) { changeFrequency(-delta_f, 3); }
 
 	//changing notes of a guitar
-	if (a_key == GLFW_KEY_B) { changeNote(4, 0); }
+	else if (a_key == GLFW_KEY_B) { changeNote(4, 0); }
 	else if (a_key == GLFW_KEY_V) { changeNote(3, 0); }
 	else if (a_key == GLFW_KEY_C) { changeNote(2, 0); }
 	else if (a_key == GLFW_KEY_X) { changeNote(1, 0); }
 	else if (a_key == GLFW_KEY_Z) { changeNote(0, 0); }
 	
-	if (a_key == GLFW_KEY_G) { changeNote(4, 1); }
+	else if (a_key == GLFW_KEY_G) { changeNote(4, 1); }
 	else if (a_key == GLFW_KEY_F) { changeNote(3, 1); }
 	else if (a_key == GLFW_KEY_D) { changeNote(2, 1); }
 	else if (a_key == GLFW_KEY_S) { changeNote(1, 1); }
 	else if (a_key == GLFW_KEY_A) { changeNote(0, 1); }
 
-	if (a_key == GLFW_KEY_T) { changeNote(4, 2); }
+	else if (a_key == GLFW_KEY_T) { changeNote(4, 2); }
 	else if (a_key == GLFW_KEY_R) { changeNote(3, 2); }
 	else if (a_key == GLFW_KEY_E) { changeNote(2, 2); }
 	else if (a_key == GLFW_KEY_W) { changeNote(1, 2); }
 	else if (a_key == GLFW_KEY_Q) { changeNote(0, 2); }
 
-	if (a_key == GLFW_KEY_5) { changeNote(4, 3); }
+	else if (a_key == GLFW_KEY_5) { changeNote(4, 3); }
 	else if (a_key == GLFW_KEY_4) { changeNote(3, 3); }
 	else if (a_key == GLFW_KEY_3) { changeNote(2, 3); }
 	else if (a_key == GLFW_KEY_2) { changeNote(1, 3); }
@@ -607,12 +642,17 @@ void updateGraphics(void)
 	/////////////////////////////////////////////////////////////////////
 
 	// update haptic and graphic rate data
-	labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-		cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
+	if (showWidget)
+	{
+		labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
+			cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
+	}
+	else
+		labelRates->setText("");
+
 
 	// update position of label
 	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
-
 
 	/////////////////////////////////////////////////////////////////////
 	// RENDER SCENE
@@ -899,27 +939,30 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
-	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.01, -0.015);
+	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.5, -0.015);
 
 	for (int j = 0; j < size; j++) {
 
 		//active particles
 		cShapeSphere* p = new cShapeSphere(radius);
-		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
+		cVector3d interval = cVector3d(0.0, (length / 2) + 0.5, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
 		p->m_material->setBlueLightSteel();
-		//world->addChild(p);
 		pActive.push_back(m);
 
 		//static particles
 		for (int i = 0; i < 2; i++) {
-			cShapeSphere* p = new cShapeSphere(0.0005);
-			cVector3d interval = cVector3d(0.0, (double)i *(length + 0.02), 0.0);
+			cShapeSphere* p = new cShapeSphere(0.0015);
+			cVector3d interval = cVector3d(0.0, (double)i *(length + 0.5225), 0.0);
 
 			Mass* m = new Mass(p, mass, start_pos + interval);
-			p->m_material->setRedDark();
-			world->addChild(p);
+			p->m_material->setWhite();
+
+			// only graphically display the particle connected to the right-end of the guitar
+			if (i == 1)
+				world->addChild(p);
+
 			pStatic.push_back(m);
 		}
 
