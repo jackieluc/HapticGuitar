@@ -148,8 +148,8 @@ cGenericHapticDevicePtr hapticDevice;
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
 
-// a small sphere (cursor) representing the haptic device 
-cShapeSphere* cursor;
+// a multi-mesh representing the haptic device as a guitar pick
+cMultiMesh* cursor;
 
 // flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -348,8 +348,10 @@ int main(int argc, char* argv[])
 	// define direction of light beam
 	light->setDir(-1.0, 0.0, 0.0);
 
-	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.005);
+	// a multi-mesh representing the haptic device as a guitar pick
+	cursor = new cMultiMesh();
+	cursor->loadFromFile("GuitarPick.3ds");
+	cursor->scale(0.01);
 
 	// insert cursor inside world
 	world->addChild(cursor);
@@ -805,17 +807,15 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
 
 	double dist = (m->pos - cursorPos).length();
-	double cursorRadius = 0.01;
+	double collisionRadius = 0.01;
 	double const scalar = 1.5;
 
-	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
 		double mag = scalar * m->k * (collisionRadius - dist);
-		cVector3d d = m->pos - cursorPos;
+		cVector3d d_vector = m->pos - cursorPos;
 
-		// we are only concerned with the particle's behaviour
-		// in the y and z axis
-		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
+		// we are only concerned with the particle's behaviour in the y and z axis
+		cVector3d dir = cNormalize(cVector3d(0.0, d_vector.y(), d_vector.z()));
 		F_collision = mag * dir;
 	}
 
@@ -853,7 +853,6 @@ cVector3d calculateForceSpring(Spring *s) {
 }
 
 cVector3d calculateForceSpringDamping(Spring *s) {
-	//*** need to check for correctness for springs
 	Mass* m1 = s->getMass1();
 	Mass* m2 = s->getMass2();
 
@@ -884,7 +883,6 @@ void updateForceParticles(cVector3d cursorPos) {
 		cVector3d F_particle = getForceOnParticle(m, cursorPos);
 		m->f = F_particle;
 	}
-
 
 	for (int i = 0; i < pSpring.size(); i++) {
 		Spring* s = pSpring[i];
@@ -982,7 +980,9 @@ void setupScene(int i) {
 }
 
 //===========================Cursor ====================================//
-
+/**	Code is now obselete. 
+	Was intended to simulate plucking with the button on the Falcon.
+	
 int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
 	int smallestIndex = 0;
@@ -999,8 +999,12 @@ int findNearestP(cVector3d cursorPos) {
 
 	return smallestIndex;	//return the nearest index of pActive
 }
+*/
 
 //========================Position =====================================//
+/** Code is now obselete.
+	Was intended to update the rest length after interactions.	
+
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos) {
 	//get relative position of rest length based on cursor position
 	double rest_length1 = fabs(s1->getMass1()->pos.y() - cursorPos.y()) / 5;
@@ -1009,7 +1013,7 @@ void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos) {
 	s1->restLength = rest_length1;
 	s2->restLength = rest_length2;
 }
-
+*/
 //===========================Sound ====================================//
 
 void initLoadedAudio(cAudioBuffer* audioBuffer, string fileName) {
@@ -1049,6 +1053,7 @@ void createSquareWave(double buf_size, double freq, double sample_rate, cAudioBu
 	//We set up how fast the sound will be played (approximately) on here, eh?
 	audioBuffer->setup(samples, buf_size, freq, false, sample_rate);
 }
+
 void initGeneratedAudio(cAudioBuffer* audioBuffer, float freq, unsigned sample_rate, int type) {
 	type = 0;
 
