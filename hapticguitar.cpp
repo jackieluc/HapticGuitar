@@ -81,6 +81,7 @@ std::vector<double> G_string = {196, 208, 220, 233, 247, 262, 277, 294, 311, 330
 std::vector<double> D_string = {147, 156, 165, 175, 185, 196, 208, 220, 233, 247, 262};
 
 
+
 void updateForceParticles(cVector3d cursorPos);
 void setupScene(int i);
 void updateRestLength(Spring* s1, Spring* s2, cVector3d cursorPos);
@@ -104,8 +105,6 @@ void initSound();
 void updateAudioSourcePosVel(cAudioSource* audioSource, Mass* m);
 void changeFrequency(double delta_f, int buffer_index);
 void changeNote(int note_pos, int buffer_index);
-
-
 
 //------------------------------------------------------------------------------
 // GENERAL SETTINGS
@@ -149,8 +148,8 @@ cGenericHapticDevicePtr hapticDevice;
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
 
-// a multi-mesh representing the haptic device as a guitar pick
-cMultiMesh* cursor;
+// a small sphere (cursor) representing the haptic device 
+cShapeSphere* cursor;
 
 // flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -349,15 +348,12 @@ int main(int argc, char* argv[])
 	// define direction of light beam
 	light->setDir(-1.0, 0.0, 0.0);
 
-	// create a multi-mesh to represent the haptic device as a guitar pick
-	cursor = new cMultiMesh();
-	cursor->loadFromFile("GuitarPick.3ds");
-	cursor->scale(0.01);
+	// create a sphere (cursor) to represent the haptic device
+	cursor = new cShapeSphere(0.005);
 
 	// insert cursor inside world
 	world->addChild(cursor);
-
-
+	
 	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
 	//--------------------------------------------------------------------------
@@ -412,6 +408,9 @@ int main(int argc, char* argv[])
 	labelRates = new cLabel(font);
 	labelRates->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelRates);
+
+	
+
 
 
 	//--------------------------------------------------------------------------
@@ -806,15 +805,17 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
 
 	double dist = (m->pos - cursorPos).length();
-	double collisionRadius = 0.01;
+	double cursorRadius = 0.01;
 	double const scalar = 1.5;
 
+	double collisionRadius = cursorRadius;
 	if (dist < collisionRadius) {
 		double mag = scalar * m->k * (collisionRadius - dist);
-		cVector3d d_vector = m->pos - cursorPos;
+		cVector3d d = m->pos - cursorPos;
 
-		// we are only concerned with the particle's behaviour in the y and z axis
-		cVector3d dir = cNormalize(cVector3d(0.0, d_vector.y(), d_vector.z()));
+		// we are only concerned with the particle's behaviour
+		// in the y and z axis
+		cVector3d dir = cNormalize(cVector3d(0.0, d.y(), d.z()));
 		F_collision = mag * dir;
 	}
 
@@ -909,6 +910,8 @@ void addParticles(int size, double length, double radius, double mass) {
 		cVector3d interval = cVector3d(0.0, (length / 2) + 0.02, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
+		p->m_material->setBlueLightSteel();
+		//world->addChild(p);
 		pActive.push_back(m);
 
 		//static particles
@@ -1020,22 +1023,43 @@ void initLoadedAudio(cAudioBuffer* audioBuffer, string fileName) {
 }
 
 void createSinWave(double buf_size, double freq, double sample_rate, cAudioBuffer* audioBuffer) {
+	double ampli = freq * 1500.0;		//high = good sounding high pitch tones, bad sounding low pitch tones
+										//low = bad sounding high pitch tones, good sounding low pitch tones
 	unsigned char *samples;
 	samples = new unsigned char[buf_size];
 	for (int i = 0; i < buf_size; ++i) {
-		double a = 32760.0 * sin((2.f*float(M_PI)*freq) / sample_rate * (double)i);
+		double a = ampli * sin((2.f*float(M_PI)*freq) / sample_rate * (double)i);
 		samples[i] = a;
 	}
 	//We set up how fast the sound will be played (approximately) on here, eh?
 	audioBuffer->setup(samples, buf_size, freq, false, sample_rate);
 }
 
+void createSquareWave(double buf_size, double freq, double sample_rate, cAudioBuffer* audioBuffer) {
+
+	double ampli = 1.991;		//***somehow, second string goes missing???
+	unsigned char *samples;
+	samples = new unsigned char[buf_size];
+	for (int i = 0; i < buf_size; ++i) {
+		double a = sin((2.f*float(M_PI)*freq) / sample_rate * (double)i);
+		if (a > 0) { samples[i] = ampli; }
+		else { samples[i] = -ampli; }
+		//samples[i] = a;
+	}
+	//We set up how fast the sound will be played (approximately) on here, eh?
+	audioBuffer->setup(samples, buf_size, freq, false, sample_rate);
+}
 void initGeneratedAudio(cAudioBuffer* audioBuffer, float freq, unsigned sample_rate, int type) {
+	type = 0;
+
 	/* Fill buffer with Sine-Wave */
 	int seconds = 4;
 	size_t buf_size = seconds * sample_rate;
 	if (type == 0) {
 		createSinWave(buf_size, freq, sample_rate, audioBuffer);
+	}
+	if (type == 1) {
+		createSquareWave(buf_size, freq, sample_rate, audioBuffer);
 	}
 }
 
@@ -1076,7 +1100,7 @@ void initSound() {
 	audioBufferFrequency.push_back(246.94);
 	audioBufferFrequency.push_back(196.06);
 	audioBufferFrequency.push_back(146.83);
-	
+		
 	int size = 4;
 	for (int i = 0; i < size; i++) {
 		audioBuffer.push_back(new cAudioBuffer());
@@ -1119,7 +1143,7 @@ TODO:
 -tune the guitar (done)
 	-different frequency have different loudness
 	-they seem to be very sensitive to the frequency of the sound generated
--add in ability to switch notes
+-add in ability to switch notes (done)
 	-I want to either change pitch, or change frequency like how i do when tuning the guitar
 	-i highly suggest doing the pitch method
 -add in more generated sounds
