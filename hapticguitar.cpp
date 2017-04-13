@@ -611,7 +611,6 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_3) { changeNote(2, 3); }
 	else if (a_key == GLFW_KEY_2) { changeNote(1, 3); }
 	else if (a_key == GLFW_KEY_1) { changeNote(0, 3); }
-
 }
 
 //------------------------------------------------------------------------------
@@ -847,6 +846,7 @@ cVector3d calculateForceCollision(Mass *m, cVector3d cursorPos) {
 	cVector3d F_collision(0, 0, 0);
 
 	double dist = (m->pos - cursorPos).length();
+
 	double collisionRadius = 0.01;
 	double const scalar = 1.5;
 
@@ -939,6 +939,7 @@ void updateForceParticles(cVector3d cursorPos) {
 
 void addParticles(int size, double length, double radius, double mass) {
 
+
 	cVector3d start_pos = cVector3d(0.0, (-length / 2) - 0.5, -0.015);
 
 	for (int j = 0; j < size; j++) {
@@ -948,7 +949,7 @@ void addParticles(int size, double length, double radius, double mass) {
 		cVector3d interval = cVector3d(0.0, (length / 2) + 0.5, 0.0);
 
 		Mass* m = new Mass(p, mass, start_pos + interval);
-		p->m_material->setBlueLightSteel();
+
 		pActive.push_back(m);
 
 		//static particles
@@ -1030,7 +1031,6 @@ int findNearestP(cVector3d cursorPos) {
 	//find the nearest particle near the cursor
 	int smallestIndex = 0;
 	double smallestLength = 1000000.0;
-
 
 	for (int i = 0; i < pActive.size(); i++) {
 		double currentLength = (pActive[i]->pos - cursorPos).length();
@@ -1183,27 +1183,3 @@ void changeNote(int note_pos, int buffer_index) {
 	cout << "Freq[" << note_pos << "," << buffer_index << "]: " << freq << endl;
 	audioSource[buffer_index]->setPitch(freq);
 }
-
-/*
-TODO:
--extend sound to multiple strings (done)
-	-just have 4 audioSource
--tune the guitar (done)
-	-different frequency have different loudness
-	-they seem to be very sensitive to the frequency of the sound generated
--add in ability to switch notes (done)
-	-I want to either change pitch, or change frequency like how i do when tuning the guitar
-	-i highly suggest doing the pitch method
--add in more generated sounds
-	-I dunno... something different
--whammy bar
--pre-recording?
-
-
-
-*/
-
-/*
--I got to raise the volume of low frequency sounds by a lot...
-	-I think I need to raise it almost exponentially?
-*/

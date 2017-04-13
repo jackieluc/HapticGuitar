@@ -6,7 +6,7 @@ Haptic Guitar is an exploration of computer haptics to simulate the feeling of p
 
 ## Created by: Jackie Luc and Philmo Gu  
 
-**Featured in University of Calgary's UToday - the leading online news service for the thriving community of more than 36,000 students, faculty, and staff. Click [here](http://ucalgary.ca/utoday/issue/2017-04-12/computer-science-showcase-invites-visitors-engage-their-senses-real-and-virtual) for the full article.**
+**We were featured in University of Calgary's UToday - the leading online news service for the thriving community of more than 36,000 students, faculty, and staff. Click [here](http://ucalgary.ca/utoday/issue/2017-04-12/computer-science-showcase-invites-visitors-engage-their-senses-real-and-virtual) for the full article.**
 
 # Setup
 
